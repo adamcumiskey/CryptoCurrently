@@ -6,6 +6,17 @@
             [goog.string :as gstring]
             [goog.string.format]))
 
+(def ws-feed-url "wss://ws-feed.gdax.com")
+(def products ["BTC-USD" "ETH-USD" "LTC-USD"])
+(def events ["ticker"])
+
+(defonce channel (atom (chan))) 
+
+;; Store prices in Reagent atoms for UI binding
+(defonce btc-price (r/atom 0))
+(defonce ltc-price (r/atom 0))
+(defonce eth-price (r/atom 0))
+
 ;; -------------------------
 ;; Websockets
 
@@ -24,15 +35,6 @@
     (>! ch {:type "subscribe"
             :product_ids product-ids
             :channels events}))) 
-
-(def ws-feed-url "wss://ws-feed.gdax.com")
-(def products ["BTC-USD" "ETH-USD" "LTC-USD"])
-(def events ["ticker"])
-
-;; Store prices in Reagent atoms for UI binding
-(defonce btc-price (r/atom 0))
-(defonce ltc-price (r/atom 0))
-(defonce eth-price (r/atom 0))
 
 (defmulti event-handler (fn [message log-enabled] [(message "type") (message "product_id")]))
 (defmethod event-handler ["ticker" "BTC-USD"] [message log-enabled]
@@ -89,8 +91,6 @@
 
 ;; -------------------------
 ;; Initialize app
-
-(defonce channel (atom (chan)))
 
 (defn mount-root []
   (r/render [home-page] (.getElementById js/document "app")))
