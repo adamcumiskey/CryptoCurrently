@@ -71,13 +71,17 @@
 
 (defn currency-row [name price]
   [:div
-   [:h3 name]
+   {:style {:padding 50.0
+            :text-align :center}}
+   [:h2 name]
    [:h4 (str "$" (gstring/format "%.2f" @price))]])
 
 (defn home-page []
   [:div 
-    [:h2 "CryptoCurrently"]
+    [:h1 "CryptoCurrently"]
     [:div
+      {:style {:display :flex
+               :flex-direction :row}}
       [currency-row "Bitcoin" btc-price]
       [currency-row "Litecoin" ltc-price]
       [currency-row "Etherium" eth-price]]])
