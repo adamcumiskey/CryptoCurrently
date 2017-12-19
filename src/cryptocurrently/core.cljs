@@ -26,12 +26,6 @@
             :product_ids product-ids
             :channels events}))) 
 
-(defn log-events [ch]
-  (go-loop []
-    (when-let [{:keys [message]} (<! ch)]
-      (prn message)
-      (recur))))
-
 (defmulti event-handler (fn [message log-enabled] [(message "type") (message "product_id")]))
 (defmethod event-handler ["ticker" "BTC-USD"] [message log-enabled]
   (reset! btc-price (message "price"))
@@ -48,12 +42,11 @@
 (defn handle-events [ch]
   (go-loop []
     (when-let [{:keys [message]} (<! ch)]
-      (event-handler message false)
+      (event-handler message true)
       (recur))))
 
-
 (def ws-feed-url "wss://ws-feed.gdax.com")
-(defonce channel (atom (chan 1)))
+(defonce channel (atom (chan)))
 (def currencies ["BTC-USD" "ETH-USD" "LTC-USD"])
 (def events ["ticker"])
 
