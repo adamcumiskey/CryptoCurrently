@@ -15,3 +15,5 @@ pom.xml.asc
 *.log
 /.env
 .cljs_rhino_repl/
+.DS_Store
+*.swp
