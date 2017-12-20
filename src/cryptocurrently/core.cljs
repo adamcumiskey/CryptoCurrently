@@ -12,6 +12,7 @@
 
 (def ws-feed-url "wss://ws-feed.gdax.com")
 (def products ["BTC-USD" "ETH-USD" "LTC-USD"])
+(def product-names ["Bitcoin" "Ethereum" "Litecoin"])
 (def events ["ticker" "level2"])
 (def visible-orders 10)
 
@@ -19,16 +20,31 @@
 ;; -------------------------
 ;; State
 
-(defonce channel (atom (chan))) 
+(defonce ws-channel (atom (chan)))
 
-(defonce btc-price (r/atom 0))
-(defonce btc-orders (r/atom (ring-buffer visible-orders)))
+(defn coin [id name]
+  {:product-id id
+   :name name
+   :price 0
+   :orders (ring-buffer visible-orders)})
 
-(defonce ltc-price (r/atom 0))
-(defonce ltc-orders (r/atom (ring-buffer visible-orders)))
+(def store (r/atom (reduce 
+             (fn [col c] 
+               (assoc col (:product-id c) c))
+             {} 
+             (map #(apply coin %) (map list products product-names)))))
 
-(defonce eth-price (r/atom 0))
-(defonce eth-orders (r/atom (ring-buffer visible-orders)))
+(defn set-price [store product-id price]
+  (let [coins @store
+        coin (coins product-id)]
+    (swap! store (assoc-in coins [product-id :price] price))))
+
+(defn add-order [store product-id order]
+  (let [coins @store
+        coin (coins product-id)
+        orders (coin :orders)]
+    (swap! store (assoc-in coins [product-id :orders] (conj orders order)))))
+
 
 
 ;; -------------------------
@@ -54,24 +70,6 @@
 ;; ------------------------
 ;; Event Handlers
 
-;;;; Ticker
-
-(defmulti ticker-event-handler (fn [message log-enabled] (message "product_id")))
-
-(defmethod ticker-event-handler "BTC-USD" [message log-enabled]
-  (reset! btc-price (message "price"))
-  (when (true? log-enabled) (prn (str "Bitcoin: $" (message "price")))))
-
-(defmethod ticker-event-handler "LTC-USD" [message log-enabled]
-  (reset! ltc-price (message "price"))
-  (when (true? log-enabled) (prn (str "Litecoin: $" (message "price")))))
-
-(defmethod ticker-event-handler "ETH-USD" [message log-enabled]
-  (reset! eth-price (message "price"))
-  (when (true? log-enabled) (prn (str "Ethereum: $" (message "price")))))
-
-
-;;;; L2Update (buy/sell orders)
 
 (defn format-order [order]
   {:type "order"
@@ -81,31 +79,11 @@
    :order_price (second (first (order "changes")))
    :order_amount (last (first (order "changes")))})
 
-(defmulti order-event-handler (fn [message log-enabled] (message "product_id")))
-
-(defmethod order-event-handler "BTC-USD" [message log-enabled]
-  (swap! btc-orders conj (format-order message))
-  (when (true? log-enabled) (prn "BTC:" (format-order message))))
-(defmethod order-event-handler "LTC-USD" [message log-enabled]
-  (swap! ltc-orders conj (format-order message))
-  (when (true? log-enabled) (prn "LTC:" (format-order message))))
-(defmethod order-event-handler "ETH-USD" [message log-enabled]
-  (swap! eth-orders conj (format-order message))
-  (when (true? log-enabled) (prn "ETH:" (format-order message))))
-
-(defmethod order-event-handler :default [message log-enabled]
-  (when (true? log-enabled) (prn (str "Unhandled Order: " (format-order message)))))
-
-
-;;;; Base
 
 (defmulti event-handler (fn [message log-enabled] (message "type")))
 
 (defmethod event-handler "ticker" [message log-enabled]
-  (ticker-event-handler message log-enabled))
-
-(defmethod event-handler "l2update" [message log-enabled]
-  (order-event-handler message log-enabled))
+  (set-price store (message "product_id") (message "price")))
 
 (defmethod event-handler :default [message log-enabled]
   (when (true? log-enabled) (prn (str "Unhandled message: " message))))
@@ -137,13 +115,13 @@
    (for [item @orders]
      ^{:key item} [order-element item])])
 
-(defn currency-element [name price]
+(defn currency-element [coin]
   "Div for a single currency"
   [:div
    {:class "currency-element col-4"}
-   [:h2 name]
+   [:h2 (:name coin)]
    [:h3
-    (str "$" (gstring/format "%.2f" @price))]])
+    (str "$" (gstring/format "%.2f" (:price coin)))]])
 
 (defn nav-bar []
   [:div
@@ -154,13 +132,8 @@
     [nav-bar]
     [:div
       {:class "content"}
-      [currency-element "Bitcoin" btc-price]
-      [currency-element "Litecoin" ltc-price]
-      [currency-element "Ethereum" eth-price]]
-    [:div
-     [orders-element btc-orders]
-     [orders-element ltc-orders]
-     [orders-element eth-orders]]])
+      (for [coin @store]
+        ^{key coin} [currency-element coin] (prn coin))]])
 
 
 ;; -------------------------
@@ -183,4 +156,4 @@
 
 (defn init! []
   (mount-root)
-  (start-updating channel products events))
+  (start-updating ws-channel products events))
