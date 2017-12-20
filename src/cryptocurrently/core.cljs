@@ -134,7 +134,7 @@
   "Order stream for a currency"
   [:div
    {:class "col-4"}
-   (for [item @orders]
+   (for [item (reverse @orders)]
      ^{:key item} [order-element item])])
 
 (defn currency-element [name price]
