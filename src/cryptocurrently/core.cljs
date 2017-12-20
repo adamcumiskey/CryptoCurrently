@@ -74,17 +74,21 @@
 (defn currency-row [name price]
   "Div for a single currency"
   [:div
-   {:style {:padding 50.0
-            :text-align :center}}
+   {:class "currency-element col-4"}
    [:h2 name]
-   [:h4 (str "$" (gstring/format "%.2f" @price))]])
+   [:h3
+    (str "$" (gstring/format "%.2f" @price))]])
+
+(defn nav-bar []
+  [:div
+   ; {:class "nav-bar"}
+     [:h1 "CryptoCurrently"]])
 
 (defn home-page []
   [:div 
-    [:h1 "CryptoCurrently"]
+    [nav-bar]
     [:div
-      {:style {:display :flex
-               :flex-direction :row}}
+      {:class "content"}
       [currency-row "Bitcoin" btc-price]
       [currency-row "Litecoin" ltc-price]
       [currency-row "Ethereum" eth-price]]])
