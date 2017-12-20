@@ -7,10 +7,17 @@
             [goog.string :as gstring]
             [goog.string.format]))
 
+;; -------------------------
+;; Constants
+
 (def ws-feed-url "wss://ws-feed.gdax.com")
 (def products ["BTC-USD" "ETH-USD" "LTC-USD"])
 (def events ["ticker" "level2"])
 (def visible-orders 10)
+
+
+;; -------------------------
+;; State
 
 (defonce channel (atom (chan))) 
 
@@ -22,6 +29,7 @@
 
 (defonce eth-price (r/atom 0))
 (defonce eth-orders (r/atom (ring-buffer visible-orders)))
+
 
 ;; -------------------------
 ;; Websockets
@@ -41,6 +49,7 @@
     (>! ch {:type "subscribe"
             :product_ids product-ids
             :channels events}))) 
+
 
 ;; ------------------------
 ;; Event Handlers
@@ -101,7 +110,6 @@
 (defmethod event-handler :default [message log-enabled]
   (when (true? log-enabled) (prn (str "Unhandled message: " message))))
 
-
 (defn add-event-handler [ch]
   "Dispatch messages from ch to the event-handler"
   (go-loop []
@@ -109,17 +117,6 @@
       (event-handler message false)
       (recur))))
 
-(defn start-updating [ch products events]
-  "Connect to the websocket feed.
-   On success, start the event-hander and subscribe
-   to a feed."
-  (add-watch ch nil
-    (fn [k r os ch]
-      (if-not (nil? ch)
-        (do
-          (add-event-handler ch)
-          (subscribe ch products events)))))
-  (connect ch ws-feed-url))
 
 ;; -------------------------
 ;; Views
@@ -165,8 +162,21 @@
      [orders-element ltc-orders]
      [orders-element eth-orders]]])
 
+
 ;; -------------------------
 ;; Initialize app
+
+(defn start-updating [ch products events]
+  "Connect to the websocket feed.
+   On success, start the event-hander and subscribe
+   to a feed."
+  (add-watch ch nil
+    (fn [k r os ch]
+      (if-not (nil? ch)
+        (do
+          (add-event-handler ch)
+          (subscribe ch products events)))))
+  (connect ch ws-feed-url))
 
 (defn mount-root []
   (r/render [home-page] (.getElementById js/document "app")))
