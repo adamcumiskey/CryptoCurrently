@@ -8,9 +8,8 @@
                  [org.clojure/clojurescript "1.9.946"]
                  [cljs-http "0.1.44"]
                  [reagent "0.7.0"]
-                 [com.taoensso/sente "1.12.0"]
-                 [jarohen/chord "0.8.1"]
-                 [org.clojure/data.json "0.2.6"]]
+                 [amalloy/ring-buffer "1.2.1"]
+                 [jarohen/chord "0.8.1"]]
 
   :plugins [[lein-cljsbuild "1.1.5"]
             [lein-figwheel "0.5.14"]]
