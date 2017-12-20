@@ -68,6 +68,9 @@
     flex-direction: column;
     justify-content: flex-start;
   }
+  .order-list {
+    hidden: true;
+  }
 }
 
 .currency-element h3 {
