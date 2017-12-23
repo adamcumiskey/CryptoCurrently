@@ -38,4 +38,5 @@ jobs:
 
       - deploy:
           command: |
+            npm install --global surge
             sh ./deploy.sh
