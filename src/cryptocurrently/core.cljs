@@ -8,6 +8,7 @@
             [goog.string :as gstring]
             [goog.string.format]))
 
+
 ;; -------------------------
 ;; Constants
 
@@ -32,26 +33,6 @@
 (defonce eth-orders (r/atom (ring-buffer visible-orders)))
 
 
-;; -------------------------
-;; Websockets
-
-(defn connect [ch url]
-  "Establish connection to websocket and set value of ch"
-  (go 
-    (let [{:keys [ws-channel error]} (<! (ws-ch url {:format :json}))]
-      (if-not error
-        (reset! ch ws-channel)
-        (js/console.log error)))))
-
-(defn subscribe [ch product-ids events]
-  "Subscribe to events for the given product-ids.
-   Required to be sent within 5s of connecting."
-  (go
-    (>! ch {:type "subscribe"
-            :product_ids product-ids
-            :channels events}))) 
-
-
 ;; ------------------------
 ;; Event Handlers
 
@@ -70,7 +51,6 @@
 (defmethod ticker-event-handler "ETH-USD" [message log-enabled]
   (reset! eth-price (message "price"))
   (when (true? log-enabled) (prn (str "Ethereum: $" (message "price")))))
-
 
 ;;;; L2Update (buy/sell orders)
 
@@ -97,7 +77,6 @@
 (defmethod order-event-handler :default [message log-enabled]
   (when (true? log-enabled) (prn (str "Unhandled Order: " (format-order message)))))
 
-
 ;;;; Base
 
 (defmulti event-handler (fn [message log-enabled] (message "type")))
@@ -111,12 +90,45 @@
 (defmethod event-handler :default [message log-enabled]
   (when (true? log-enabled) (prn (str "Unhandled message: " message))))
 
+
+;; -------------------------
+;; Websockets
+
+(defn connect [ch url]
+  "Establish connection to websocket and set value of ch"
+  (go 
+    (let [{:keys [ws-channel error]} (<! (ws-ch url {:format :json}))]
+      (if-not error
+        (reset! ch ws-channel)
+        (js/console.log error)))))
+
+(defn subscribe [ch product-ids events]
+  "Subscribe to events for the given product-ids.
+   Required to be sent within 5s of connecting."
+  (go
+    (>! ch {:type "subscribe"
+            :product_ids product-ids
+            :channels events}))) 
+
 (defn add-event-handler [ch]
   "Dispatch messages from ch to the event-handler"
   (go-loop []
     (when-let [{:keys [message]} (<! ch)]
       (event-handler message false)
       (recur))))
+
+(defn start-updating [ch products events]
+  "Connect to the websocket feed.
+   On success, start the event-hander and subscribe
+   to a feed."
+  (add-watch ch nil
+    (fn [k r os ch]
+      (if-not (nil? ch)
+        (do
+          (add-event-handler ch)
+          (subscribe ch products events)))))
+  (connect ch ws-feed-url))
+
 
 ;; -------------------------
 ;; Styles
@@ -160,6 +172,7 @@
                                                             :padding "8px"}
                                                        :th {:padding "8px"}}})
 
+
 ;; -------------------------
 ;; Views
 
@@ -185,10 +198,10 @@
     [:tr
      [:td (stylefy/use-sub-style currency-order-table-style :td)
       order_type]
-      [:td (stylefy/use-sub-style currency-order-table-style :td)
-       (str "$" (gstring/format "%.2f" order_price))]
-      [:td (stylefy/use-sub-style currency-order-table-style :td)
-       (gstring/format "%.5f" order_amount)]]))   
+     [:td (stylefy/use-sub-style currency-order-table-style :td)
+      (str "$" (gstring/format "%.2f" order_price))]
+     [:td (stylefy/use-sub-style currency-order-table-style :td)
+      (gstring/format "%.5f" order_amount)]]))   
 
 (defn currency-order-table [orders]
   [:table
@@ -200,8 +213,7 @@
 (defn currency-column [currency price orders]
   [:div (stylefy/use-style currency-column-style)
    [currency-header currency price]
-   [currency-order-table orders]
-   ])
+   [currency-order-table orders]])
 
 (defn main-content []
   [:div (stylefy/use-style main-content-style)
@@ -214,20 +226,9 @@
     [header]
     [main-content]])
 
+
 ;; -------------------------
 ;; Initialize app
-
-(defn start-updating [ch products events]
-  "Connect to the websocket feed.
-   On success, start the event-hander and subscribe
-   to a feed."
-  (add-watch ch nil
-    (fn [k r os ch]
-      (if-not (nil? ch)
-        (do
-          (add-event-handler ch)
-          (subscribe ch products events)))))
-  (connect ch ws-feed-url))
 
 (defn mount-root []
   (r/render [page] (.getElementById js/document "app")))
