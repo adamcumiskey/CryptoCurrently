@@ -1,6 +1,7 @@
 (ns cryptocurrently.core
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [reagent.core :as r]
+            [stylefy.core :as stylefy]
             [amalloy.ring-buffer :refer [ring-buffer]]
             [chord.client :refer [ws-ch]]
             [cljs.core.async :refer [<! >! close! chan]]
@@ -117,51 +118,101 @@
       (event-handler message false)
       (recur))))
 
+;; -------------------------
+;; Styles
+
+(def phone-width "600px")
+(def tablet-width "774px")
+
+(def clearfix {::stylefy/mode {:after {:clear "both"
+                                       :content ""
+                                       :display "block"
+                                       :height 0
+                                       :line-height 0
+                                       :visiblility "hidden"}}})
+
+(def dark-style {:background-color "#333"
+                 :color "#FFF"})
+(def light-style {:background-color "#FFF"
+                  :color "#333"})
+
+(def header-style (merge dark-style {:margin "0px"
+                                     :padding "20px"
+                                     :text-align "center"}))
+
+(def main-content-style (merge light-style clearfix {}))
+
+(def currency-column-style {::stylefy/media {{:max-width tablet-width} {:width "100%"}}
+                            :float "left"
+                            :width "33%"
+                            :padding "15px"})
+
+(def currency-header-style {:padding "20px"
+                            :height "20%"})
+
+(def currency-order-table-style {:border "1px solid black"
+                                 :border-collapse "collapse"
+                                 :width "100%"
+                                 :height "80%"
+                                 ::stylefy/sub-styles {:td {:background-color "#FFF"
+                                                            :border "1px solid black"
+                                                            :width "33%"
+                                                            :padding "8px"}
+                                                       :th {:padding "8px"}}})
 
 ;; -------------------------
 ;; Views
 
-(defn order-element [order]
-  [:div
-   {:style {:display :flex
-            :flex-direction :row
-            :justify-content :space-around}}
-   [:p (order :order_type)]
-   [:p (str "$" (gstring/format "%.2f" (order :order_price)))]
-   [:p (gstring/format "%.5f" (order :order_amount))]])
-
-(defn orders-element [orders]
-  "Order stream for a currency"
-  [:div
-   {:class "col-4"}
-   (for [item (reverse @orders)]
-     ^{:key item} [order-element item])])
-
-(defn currency-element [name price]
-  "Div for a single currency"
-  [:div
-   {:class "currency-element col-4"}
-   [:h2 name]
-   [:h3
-    (str "$" (gstring/format "%.2f" @price))]])
-
-(defn nav-bar []
-  [:div
+(defn header []
+  [:div (stylefy/use-style header-style)
      [:h1 "CryptoCurrently"]])
 
-(defn home-page []
-  [:div 
-    [nav-bar]
-    [:div
-      {:class "content"}
-      [currency-element "Bitcoin" btc-price]
-      [currency-element "Litecoin" ltc-price]
-      [currency-element "Ethereum" eth-price]]
-    [:div
-     [orders-element btc-orders]
-     [orders-element ltc-orders]
-     [orders-element eth-orders]]])
+(defn currency-header [currency price]
+  [:div (stylefy/use-style currency-header-style)
+   [:h1 (stylefy/use-style {:text-align "center"}) 
+    currency]
+   [:h2 (stylefy/use-style {:text-align "center"}) 
+    (str "$" (gstring/format "%.2f" @price))]])   
 
+(defn currency-order-table-header []
+  [:tr (stylefy/use-style dark-style)
+   [:th (stylefy/use-sub-style currency-order-table-style :th) "Order Type"]
+   [:th (stylefy/use-sub-style currency-order-table-style :th) "Price"]
+   [:th (stylefy/use-sub-style currency-order-table-style :th) "Amount"]])
+
+(defn currency-order-table-row [order]
+  (let [{:keys [order_type order_price order_amount]} order]
+    [:tr
+     [:td (stylefy/use-sub-style currency-order-table-style :td)
+      order_type]
+      [:td (stylefy/use-sub-style currency-order-table-style :td)
+       (str "$" (gstring/format "%.2f" order_price))]
+      [:td (stylefy/use-sub-style currency-order-table-style :td)
+       (gstring/format "%.5f" order_amount)]]))   
+
+(defn currency-order-table [orders]
+  [:table
+   (stylefy/use-style currency-order-table-style)
+   [currency-order-table-header]
+   (for [order (reverse @orders)]
+     ^{:key order} [currency-order-table-row order])])
+
+(defn currency-column [currency price orders]
+  [:div (stylefy/use-style currency-column-style)
+   [currency-header currency price]
+   [currency-order-table orders]
+   ])
+
+(defn main-content []
+  [:div (stylefy/use-style main-content-style)
+   [currency-column "BTC" btc-price btc-orders]
+   [currency-column "LTC" ltc-price ltc-orders]
+   [currency-column "ETC" eth-price eth-orders]])
+
+(defn page []
+  [:div
+    [header]
+    [main-content]])
 
 ;; -------------------------
 ;; Initialize app
@@ -179,8 +230,9 @@
   (connect ch ws-feed-url))
 
 (defn mount-root []
-  (r/render [home-page] (.getElementById js/document "app")))
+  (r/render [page] (.getElementById js/document "app")))
 
 (defn init! []
+  (stylefy/init)
   (mount-root)
   (start-updating channel products events))
