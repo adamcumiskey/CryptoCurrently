@@ -3,8 +3,6 @@
 Display real-time cryptocurrency prices from GDAX.
 Uses ClojureScript, core.async, websockets, and Reagent.
 
-[Demo](https://supreme-current.surge.sh/)
-
 ### Development mode
 
 To start the Figwheel compiler, navigate to the project folder and run the following command in the terminal:
